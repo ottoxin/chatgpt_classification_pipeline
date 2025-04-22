@@ -1,4 +1,4 @@
-# ChatGPT Classification Pipeline
+# General ChatGPT Classification Pipeline
 
 This repository provides a complete framework for using OpenAI's GPT models to classify text into themes or custom categories. It includes both **theoretical foundations** and a **fully working engineering pipeline** using the new [OpenAI Responses API](https://platform.openai.com/docs/guides/structured-outputs).
 
@@ -175,14 +175,105 @@ print(output)
 ```
 
 ---
-
-### Special Case: Account Type Classification (`chatgpt_account_type_classification.ipynb`)
-
-This notebook adapts the pipeline to infer **Twitter/X account types** (e.g., Individual, Bot, Organization) using profile bios.
-
----
-
 ## References
 
 - [Prompt Optimization](https://arxiv.org/html/2409.01466v2)  
 - [Prompt Stability Evaluation](https://arxiv.org/pdf/2407.02039)
+
+- 
+
+# Account Categorization Pipeline using OpenAI
+
+## Pipeline
+
+- Load and preprocess a labeled dataset
+- Generate prompts dynamically for each data entry
+- Query OpenAI's GPT models (e.g., `gpt-4o-mini`) using custom system instructions and prompts
+- Collect and save raw model responses (`chatgpt_output`)
+- Parse categorical predictions from GPT outputs
+- Evaluate model consistency with ground truth (`TYPE`)
+- Log progress and auto-backup results during batch processing
+- Save both raw and cleaned datasets
+
+## Setup
+
+1. Clone the repository.
+2. Install dependencies (if any):
+   ```bash
+   pip install pandas openai
+   ```
+3. Set your OpenAI API key:
+   ```bash
+   export OPENAI_API_KEY="your-api-key"
+   ```
+
+## Data Requirements
+
+- A CSV file with labeled textual entries. One of the columns must be `TYPE` representing ground-truth labels.
+
+## How It Works
+
+1. Load the dataset and remove previous model outputs if they exist.
+2. For each row in the dataset:
+   - Convert the row into a formatted string
+   - Send a prompt to GPT using a predefined `background_knowledge` and a formatted template
+   - Save the GPT output to a new column `chatgpt_output`
+3. Save progress every 100 entries and log to `process_log.txt`
+4. After all data is processed:
+   - Extract structured labels from `chatgpt_output`
+   - Determine predicted category (`chatgpt_label`)
+   - Evaluate agreement with `TYPE` and compute consistency
+   - Save a cleaned version of the dataset
+
+## Example Function
+
+```python
+label_data(
+    df=data, 
+    directory="./outputs", 
+    background_knowledge="You are a helpful assistant...", 
+    prompt_template="Classify the following entry:\n\n{entry}", 
+    index="1"
+)
+```
+
+## Outputs
+
+- `MMDD1_raw.csv`: Original dataset + GPT outputs
+- `MMDD1_clean.csv`: Dataset with parsed categories and consistency check
+- `process_log.txt`: Ongoing logs during processing
+- Intermediate backups every 100 entries
+
+## Evaluation
+
+- Compares model label (`chatgpt_label`) to ground-truth (`TYPE`)
+- Computes per-category performance metrics
+
+## Batch Labeling (Optional for Large Datasets)
+
+To handle large datasets more efficiently, you can split the cleaned dataset into multiple parts and process them in batches. This approach is helpful for managing OpenAI API rate limits, preventing memory issues, or parallelizing work.
+
+```python
+# Split the cleaned DataFrame into 5 roughly equal parts
+split_dataframes = np.array_split(df_clean, 5)
+
+# Loop through each batch and label entries using GPT
+for i, split_df in enumerate(split_dataframes):
+    # Apply the labeling function to the current batch
+    df_labeled = label_data(split_df, output_directory, background_knowledge, prompt_template, i)
+    
+    # Save each labeled batch to a separate CSV file
+    output_file = f"{output_directory}/labeled_dataset_part_{i + 1}.csv"
+    df_labeled.to_csv(output_file, index=False)
+    
+    # Print confirmation for tracking progress
+    print(f"Labeling complete for part {i + 1}. Labeled dataset saved.")
+```
+
+### What This Does:
+- **Splitting:** Divides the full dataset into 5 equal parts (`np.array_split`).
+- **Looping:** Iterates over each part and sends the entries for labeling.
+- **Saving:** Each labeled subset is saved separately with a distinct filename.
+- **Logging:** A progress message confirms completion of each batch.
+
+---
