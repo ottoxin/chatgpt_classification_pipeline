@@ -182,7 +182,7 @@ print(output)
 
 - 
 
-# Account Categorization Pipeline using OpenAI
+# Account Categorization Pipeline using OpenAI (`chatgpt_account_type_classification.ipynb`)
 
 ## Pipeline
 
